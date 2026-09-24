@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>火柴人对战</title>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<style>
+:root{--bg1:#0f172a;--bg2:#1e1b4b;--card:#1e293b;--bd:#334155;--tx:#e2e8f0;--mt:#94a3b8;--ac:#38bdf8;--ac2:#818cf8;--ok:#22c55e;--dg:#ef4444;--wn:#f59e0b;--gd:#fbbf24}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;background:linear-gradient(135deg,var(--bg1),var(--bg2));color:var(--tx);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:12px;overflow:hidden}
+.w{width:100%;max-width:920px}
+.scr{display:none}.scr.active{display:block;animation:f .4s}@keyframes f{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+h1{font-size:1.6rem;text-align:center;margin-bottom:6px;background:linear-gradient(90deg,var(--ac),var(--ac2));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+.sub{text-align:center;color:var(--mt);font-size:.85rem;margin-bottom:20px}
+.btn{padding:13px 22px;border:none;border-radius:12px;cursor:pointer;font-size:.95rem;font-weight:600;transition:transform .15s;width:100%}
+.btn:active{transform:scale(.95)}
+.btn-p{background:linear-gradient(90deg,var(--ac),var(--ac2));color:#0f172a}
+.btn-s{background:var(--bd);color:var(--tx)}
+.menu-btns{max-width:280px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.chars{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+.char{background:var(--card);border:2px solid var(--bd);border-radius:16px;padding:18px;width:210px;cursor:pointer;transition:all .2s;text-align:center}
+.char:hover{border-color:var(--ac);transform:translateY(-4px)}
+.char canvas{display:block;margin:0 auto 10px}
+.char .nm{font-size:1.1rem;font-weight:700;margin-bottom:4px}
+.char .tags{font-size:.75rem;color:var(--mt);line-height:1.6}
+.char .tags b{color:var(--ac)}
+.char .sk{font-size:.78rem;color:var(--gd);margin-top:4px}
+.hint{text-align:center;color:var(--mt);font-size:.8rem;margin-top:18px}
+.online-box{max-width:340px;margin:0 auto;text-align:center}
+.online-box input{width:100%;padding:12px;border-radius:10px;border:1px solid var(--bd);background:#0f172a;color:var(--tx);font-size:1.2rem;text-align:center;letter-spacing:4px;margin-bottom:12px;outline:none}
+.online-box input:focus{border-color:var(--ac)}
+.room-code{font-size:2rem;font-weight:800;color:var(--gd);letter-spacing:6px;margin:16px 0}
+#gameScreen.active{display:flex;flex-direction:column;align-items:center}
+.hud{display:flex;justify-content:space-between;width:100%;max-width:900px;margin-bottom:6px;gap:12px}
+.hpb{flex:1}
+.hpn{font-size:.82rem;font-weight:600;margin-bottom:2px}
+.hpbar{height:16px;background:#334155;border-radius:8px;overflow:hidden;position:relative}
+.hpf{height:100%;border-radius:8px;transition:width .2s}.hpf.p{background:linear-gradient(90deg,#22c55e,#84cc16)}.hpf.e{background:linear-gradient(90deg,#ef4444,#f59e0b)}
+.hpt{position:absolute;top:0;left:0;width:100%;text-align:center;font-size:.68rem;line-height:16px;color:#fff;text-shadow:0 1px 2px #000}
+.enbar{height:7px;background:#334155;border-radius:4px;overflow:hidden;margin-top:3px}
+.enf{height:100%;border-radius:4px;background:linear-gradient(90deg,#fbbf24,#f59e0b);transition:width .15s}
+canvas#game{display:block;background:#0f172a;border:1px solid var(--bd);border-radius:12px;max-width:100%;height:auto}
+.ctrls{display:flex;gap:8px;margin-top:8px;justify-content:center;flex-wrap:wrap}
+.cb{width:54px;height:54px;border-radius:50%;border:1px solid var(--bd);background:var(--card);color:var(--tx);font-size:.95rem;font-weight:700;cursor:pointer;user-select:none;touch-action:none}
+.cb:active{background:var(--ac);color:#0f172a}
+.kh{color:var(--mt);font-size:.75rem;text-align:center;margin-top:6px}
+.endc{background:var(--card);border:1px solid var(--bd);border-radius:20px;padding:36px;text-align:center;max-width:420px;margin:0 auto}
+.endc .em{font-size:3.5rem;margin-bottom:10px}
+.endc h2{font-size:1.6rem;margin-bottom:6px}
+.endc .vs{color:var(--mt);font-size:.9rem;margin-bottom:24px}
+.br{display:flex;gap:12px;justify-content:center}
+.conn-status{color:var(--mt);font-size:.85rem;text-align:center;margin-top:10px}
+</style>
+</head>
+<body>
+<div class="w">
+  <div class="scr active" id="menuScreen">
+    <h1>⚔️ 火柴人对战</h1>
+    <p class="sub">选择模式，开始战斗</p>
+    <div class="menu-btns">
+      <button class="btn btn-p" id="btnSingle">单人 vs AI</button>
+      <button class="btn btn-s" id="btnOnline">联机对战</button>
+    </div>
+  </div>
+  <div class="scr" id="selectScreen">
+    <h1 id="selTitle">选择角色</h1>
+    <p class="sub">每个角色拥有独特技能与炸弹</p>
+    <div class="chars" id="charList"></div>
+    <p class="hint">A/D 移动 · W 跳跃 · J 拳 · K 踢 · L 炸弹 · U 技能</p>
+  </div>
+  <div class="scr" id="onlineScreen">
+    <h1>联机对战</h1>
+    <p class="sub">创建房间或输入房间号加入</p>
+    <div class="online-box">
+      <button class="btn btn-p" id="btnCreate" style="margin-bottom:12px">创建房间</button>
+      <input type="text" id="roomInput" placeholder="输入4位房间号" maxlength="4" inputmode="numeric">
+      <button class="btn btn-s" id="btnJoin">加入房间</button>
+      <p class="conn-status" id="connStatus"></p>
+    </div>
+    <p class="hint"><button class="btn btn-s" style="width:auto;padding:6px 16px;margin-top:16px" id="btnBackMenu">返回菜单</button></p>
+  </div>
+  <div class="scr" id="waitScreen">
+    <h1>等待对手…</h1>
+    <p class="sub">把房间号发给对方</p>
+    <div class="online-box">
+      <p style="color:var(--mt)">房间号</p>
+      <div class="room-code" id="roomCodeDisplay">----</div>
+      <p class="conn-status" id="waitStatus">等待加入…</p>
+      <button class="btn btn-s" id="btnCancelWait" style="margin-top:16px">取消</button>
+    </div>
+  </div>
+  <div class="scr" id="gameScreen">
+    <div class="hud">
+      <div class="hpb"><div class="hpn" id="pName">玩家</div><div class="hpbar"><div class="hpf p" id="pHp"></div><div class="hpt" id="pHpT"></div></div><div class="enbar"><div class="enf" id="pEn"></div></div></div>
+      <div class="hpb"><div class="hpn" id="eName" style="text-align:right">敌人</div><div class="hpbar"><div class="hpf e" id="eHp"></div><div class="hpt" id="eHpT"></div></div><div class="enbar"><div class="enf" id="eEn"></div></div></div>
+    </div>
+    <canvas id="game" width="900" height="420"></canvas>
+    <div class="ctrls">
+      <button class="cb" id="bL">◀</button><button class="cb" id="bJ">跳</button><button class="cb" id="bP">拳</button><button class="cb" id="bK">踢</button><button class="cb" id="bB">弹</button><button class="cb" id="bU">技</button><button class="cb" id="bR">▶</button>
+    </div>
+    <p class="kh">A/D 移动 · W 跳 · J 拳 · K 踢 · L 弹 · U 技</p>
+  </div>
+  <div class="scr" id="endScreen">
+    <div class="endc">
+      <div class="em" id="endEmoji">🏆</div><h2 id="endTitle">胜利！</h2><p class="vs" id="endVs"></p>
+      <div class="br"><button class="btn btn-p" id="btnRetry" style="width:auto">再战</button><button class="btn btn-s" id="btnChange" style="width:auto">换角色</button><button class="btn btn-s" id="btnMenu" style="width:auto">菜单</button></div>
+    </div>
+  </div>
+</div>
+<script>
+const CHARS=[
+  {name:"王博文",color:"#38bdf8",hp:150,speed:5.5,atk:20,skill:"剑气斩",skDesc:"前方半月剑气，大范围高伤",skDmg:38},
+  {name:"田飞扬",color:"#22c55e",hp:85, speed:5.8,atk:11,skill:"旋风腿",skDesc:"原地旋风，周身范围伤害",skDmg:26},
+  {name:"盘冰山",color:"#f59e0b",hp:120,speed:3.5,atk:16,skill:"地震波",skDesc:"脚下地震波，向两侧扩散",skDmg:30},
+];
+const $=id=>document.getElementById(id);
+const G=$("game"),ctx=G.getContext("2d");
+const W=900,H=420,GROUND=360;
+let player,enemy,keys={},floats=[],bombs=[],effects=[],selected=0,gameOver=false;
+let mode="single",online=false,isHost=false,peer=null,conn=null,roomCode=null;
+let enemyCharIdx=-1,myCharSent=false;
+
+function show(id){document.querySelectorAll(".scr").forEach(s=>s.classList.remove("active"));$(id).classList.add("active")}
+
+function drawStick(c,x,y,color,act,dir,frame,flash){
+  c.save();
+  if(flash>0)c.globalAlpha=0.4+0.6*Math.abs(Math.sin(flash*0.7));
+  c.strokeStyle=color;c.fillStyle=color;c.lineWidth=4;c.lineCap="round";
+  let aA=0,aB=0,lA=0,lB=0;
+  if(act==="walk"){const s=Math.sin(frame*.3);lA=s*.5;lB=-s*.5;aA=-s*.3;aB=s*.3}
+  else if(act==="jump"){lA=-.5;lB=-.5;aA=-.6;aB=-.6}
+  else if(act==="punch"){aA=dir*1.4;aB=dir*.2}
+  else if(act==="kick"){lA=dir*1.3;aA=-dir*.3}
+  else if(act==="skill"){const s=Math.sin(frame*.5);aA=s*1.5;aB=-s*1.5;lA=-s*.6;lB=s*.6}
+  const hy=y-50,sy=hy+11,hipY=y-20;
+  c.beginPath();c.moveTo(x,sy);c.lineTo(x,hipY);c.stroke();
+  c.beginPath();c.arc(x,hy,11,0,7);c.stroke();
+  c.beginPath();c.arc(x+dir*4,hy-2,1.8,0,7);c.fill();
+  const al=18;
+  c.beginPath();c.moveTo(x,sy);c.lineTo(x+Math.sin(aA)*al*dir,sy+Math.cos(aA)*al);c.stroke();
+  c.beginPath();c.moveTo(x,sy);c.lineTo(x+Math.sin(aB)*al*dir,sy+Math.cos(aB)*al);c.stroke();
+  const ll=20;
+  c.beginPath();c.moveTo(x,hipY);c.lineTo(x+Math.sin(lA)*ll,hipY+Math.cos(lA)*ll);c.stroke();
+  c.beginPath();c.moveTo(x,hipY);c.lineTo(x+Math.sin(lB)*ll,hipY+Math.cos(lB)*ll);c.stroke();
+  c.restore();
+}
+
+class Bomb{
+  constructor(x,y,dir,owner){this.x=x;this.y=y;this.vx=dir*7;this.vy=-11;this.owner=owner;this.exploded=false;this.particles=[];this.timer=55;this.r=0}
+  update(){
+    if(!this.exploded){this.vy+=.5;this.x+=this.vx;this.y+=this.vy;this.timer--;
+      if(this.timer<=0||this.y>=GROUND+8){this.y=GROUND+8;this.explode()}}
+    else{this.r+=4;this.particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;p.vy+=.2;p.life--});
+      this.particles=this.particles.filter(p=>p.life>0)}
+  }
+  explode(){
+    this.exploded=true;this.r=5;
+    for(let i=0;i<28;i++){const a=Math.random()*7,sp=2+Math.random()*8;
+      this.particles.push({x:this.x,y:this.y,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp-3,life:25+Math.random()*15,
+        c:["#ff4500","#ffa500","#ffd700","#ff6347","#fff"][Math.floor(Math.random()*5)]})}
+    const tgt=this.owner===player?enemy:player;
+    if(tgt&&tgt.hp>0&&Math.abs(tgt.x-this.x)<65){tgt.takeHit(22,tgt.x<this.x?-1:1)}
+  }
+  draw(){
+    if(!this.exploded){
+      ctx.fillStyle="#333";ctx.beginPath();ctx.arc(this.x,this.y,7,0,7);ctx.fill();
+      ctx.fillStyle="#ff0";ctx.fillRect(this.x-2,this.y-12,4,6);
+      ctx.strokeStyle="#888";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(this.x,this.y-6);ctx.lineTo(this.x+3,this.y-10);ctx.stroke();
+    }else{
+      if(this.r<80){ctx.strokeStyle=`rgba(255,140,0,${1-this.r/80})`;ctx.lineWidth=4;ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,7);ctx.stroke()}
+      if(this.r<50){ctx.fillStyle=`rgba(255,200,0,${0.5*(1-this.r/50)})`;ctx.beginPath();ctx.arc(this.x,this.y,this.r*.6,0,7);ctx.fill()}
+      this.particles.forEach(p=>{ctx.fillStyle=p.c;ctx.globalAlpha=p.life/40;ctx.fillRect(p.x-2,p.y-2,4,4);ctx.globalAlpha=1});
+    }
+  }
+  get done(){return this.exploded&&this.particles.length===0&&this.r>80}
+}
+
+class Effect{
+  constructor(type,x,y,dir,color,skDmg,owner){this.type=type;this.x=x;this.y=y;this.dir=dir;this.color=color;this.dmg=skDmg;this.owner=owner;this.frame=0;this.maxF=40;this.hit=false}
+  update(){
+    this.frame++;
+    if(!this.hit&&this.frame>=8){
+      this.hit=true;
+      const tgt=this.owner===player?enemy:player;
+      if(tgt&&tgt.hp>0){
+        if(this.type==="slash"&&((this.dir>0&&tgt.x>this.x&&tgt.x<this.x+200)||(this.dir<0&&tgt.x<this.x&&tgt.x>this.x-200)))tgt.takeHit(this.dmg,this.dir);
+        else if(this.type==="spin"&&Math.abs(tgt.x-this.x)<80)tgt.takeHit(this.dmg,tgt.x<this.x?-1:1);
+        else if(this.type==="quake"&&Math.abs(tgt.x-this.x)<300)tgt.takeHit(this.dmg,tgt.x<this.x?-1:1);
+      }
+    }
+  }
+  draw(){
+    const p=this.frame/this.maxF;if(p>=1)return;
+    if(this.type==="slash"){
+      ctx.save();ctx.translate(this.x+this.dir*100,this.y-30);
+      ctx.strokeStyle=`rgba(120,200,255,${1-p})`;ctx.lineWidth=6;
+      ctx.beginPath();ctx.arc(0,0,80+p*60,-1.2,1.2);ctx.stroke();
+      ctx.strokeStyle=`rgba(255,255,255,${(1-p)*.7})`;ctx.lineWidth=2;
+      ctx.beginPath();ctx.arc(0,0,60+p*70,-1,1);ctx.stroke();ctx.restore();
+    }else if(this.type==="spin"){
+      ctx.save();ctx.translate(this.x,this.y-25);
+      for(let i=0;i<3;i++){const r=30+this.frame*2+i*15;
+        ctx.strokeStyle=`rgba(80,200,80,${(1-p)*.8})`;ctx.lineWidth=5;
+        ctx.beginPath();ctx.arc(0,0,r,this.frame*.2+i*2,this.frame*.2+i*2+4);ctx.stroke()}
+      ctx.restore();
+    }else if(this.type==="quake"){
+      for(let i=0;i<3;i++){const r=this.frame*8+i*30;if(r>300)continue;
+        ctx.strokeStyle=`rgba(200,120,40,${(1-r/300)*.8})`;ctx.lineWidth=4;
+        ctx.beginPath();ctx.arc(this.x,GROUND+12,r,0,Math.PI);ctx.stroke()}
+    }
+  }
+  get done(){return this.frame>=this.maxF}
+}
+
+class Fighter{
+  constructor(def,x,isAI){
+    Object.assign(this,def);this.maxHp=def.hp;this.x=x;this.y=GROUND;this.vx=0;this.vy=0;
+    this.isAI=isAI;this.dir=isAI?-1:1;this.act="idle";this.frame=0;
+    this.onGround=true;this.atkCool=0;this.hurtFlash=0;this.busy=0;this.aiT=0;
+    this.energy=0;this.bombCool=0;this.skillCool=0;
+  }
+  gainEnergy(v){this.energy=Math.min(100,this.energy+v)}
+  punch(){if(this.atkCool>0||this.busy>0)return;this.act="punch";this.busy=12;this.atkCool=22;this.gainEnergy(6);this.tryHit(0)}
+  kick(){if(this.atkCool>0||this.busy>0)return;this.act="kick";this.busy=16;this.atkCool=30;this.gainEnergy(7);this.tryHit(1)}
+  throwBomb(){
+    if(this.bombCool>0||this.busy>0)return;this.busy=10;this.bombCool=80;this.gainEnergy(5);
+    bombs.push(new Bomb(this.x+this.dir*20,this.y-40,this.dir,this));
+    if(online&&this===player)send({t:"evt",k:"bomb",x:this.x+this.dir*20,y:this.y-40,dir:this.dir});
+  }
+  useSkill(){
+    if(this.energy<100||this.skillCool>0||this.busy>0)return;
+    this.energy=0;this.skillCool=120;this.act="skill";this.busy=40;
+    const type=this.name==="王博文"?"slash":this.name==="田飞扬"?"spin":"quake";
+    effects.push(new Effect(type,this.x,this.y,this.dir,this.color,this.skDmg,this));
+    if(online&&this===player)send({t:"evt",k:"skill",type:type,x:this.x,y:this.y,dir:this.dir});
+  }
+  tryHit(kind){
+    const reach=kind?34:28;const tx=this.x+this.dir*reach;const tgt=this.isAI?player:enemy;
+    if(!tgt||tgt.hp<=0)return;
+    if(Math.abs(tgt.x-tx)<24&&Math.abs(tgt.y-this.y)<50){const dmg=this.atk+(kind?4:0)+Math.floor(Math.random()*4);tgt.takeHit(dmg,this.dir)}
+    if(online&&this===player)send({t:"evt",k:kind?"kick":"punch",x:this.x,dir:this.dir});
+  }
+  takeHit(dmg,fromDir){this.hp=Math.max(0,this.hp-dmg);this.hurtFlash=12;this.vx=fromDir*5;this.vy=-4;this.onGround=false;this.gainEnergy(4);floats.push({x:this.x,y:this.y-66,val:dmg,life:30})}
+  move(d){if(this.busy>0)return;this.vx=d*this.speed;this.dir=d;this.act=this.onGround?"walk":"jump"}
+  jump(){if(this.onGround&&this.busy===0){this.vy=-12;this.onGround=false;this.act="jump"}}
+  update(){
+    this.frame++;
+    if(this.atkCool>0)this.atkCool--;if(this.bombCool>0)this.bombCool--;if(this.skillCool>0)this.skillCool--;
+    if(this.busy>0){this.busy--;if(this.busy===0)this.act=this.onGround?"idle":"jump"}
+    if(this.hurtFlash>0)this.hurtFlash--;
+    this.vy+=.6;this.x+=this.vx;this.y+=this.vy;
+    if(this.y>=GROUND){this.y=GROUND;this.vy=0;if(!this.onGround){this.onGround=true;this.act=this.busy>0?this.act:"idle"}}
+    this.vx*=.8;
+    if(this.onGround&&this.busy===0&&Math.abs(this.vx)<.3)this.act="idle";
+    this.x=Math.max(30,Math.min(W-30,this.x));
+    this.gainEnergy(.08);
+    if(this.isAI&&mode==="single"&&!gameOver&&player&&player.hp>0){
+      this.aiT++;const dx=player.x-this.x,dist=Math.abs(dx);this.dir=dx>0?1:-1;
+      if(this.aiT%8===0){
+        if(dist>75)this.move(this.dir);
+        else if(dist<45){if(this.atkCool===0){Math.random()<.5?this.punch():this.kick()}}
+        else{this.vx*=.5;if(Math.random()<.02)this.jump()}
+        if(Math.random()<.02&&this.bombCool===0)this.throwBomb();
+        if(this.energy>=100&&Math.random()<.1)this.useSkill();
+      }
+      if(Math.random()<.004&&this.onGround)this.jump();
+    }
+  }
+  draw(){drawStick(ctx,this.x,this.y,this.color,this.act,this.dir,this.frame,this.hurtFlash)}
+}
+
+function separate(){
+  if(!player||!enemy)return;
+  const minD=34,dx=enemy.x-player.x;
+  if(Math.abs(dx)<minD){const push=(minD-Math.abs(dx))/2+.5;
+    if(dx>=0){player.x=Math.max(30,player.x-push);enemy.x=Math.min(W-30,enemy.x+push)}
+    else{player.x=Math.min(W-30,player.x+push);enemy.x=Math.max(30,enemy.x-push)}}
+}
+
+function buildSelect(){
+  const list=$("charList");list.innerHTML="";
+  CHARS.forEach((c,i)=>{
+    const d=document.createElement("div");d.className="char";
+    const cv=document.createElement("canvas");cv.width=90;cv.height=110;
+    drawStick(cv.getContext("2d"),45,90,c.color,"idle",1,0,0);
+    d.appendChild(cv);
+    const nm=document.createElement("div");nm.className="nm";nm.textContent=c.name;nm.style.color=c.color;
+    const tg=document.createElement("div");tg.className="tags";tg.innerHTML=`血<b>${c.hp}</b> 速<b>${c.speed}</b> 攻<b>${c.atk}</b>`;
+    const sk=document.createElement("div");sk.className="sk";sk.textContent="★ "+c.skill+"："+c.skDesc;
+    d.appendChild(nm);d.appendChild(tg);d.appendChild(sk);
+    d.onclick=()=>{selected=i;onCharSelected()};
+    list.appendChild(d);
+  });
+}
+
+function onCharSelected(){
+  if(online){
+    myCharSent=true;send({t:"char",idx:selected});
+    if(enemyCharIdx>=0)startFight();else show("waitScreen");
+  }else{startFight()}
+}
+
+function startFight(){
+  show("gameScreen");gameOver=false;floats=[];bombs=[];effects=[];
+  player=new Fighter(CHARS[selected],220,false);
+  const eIdx=online?enemyCharIdx:(selected+1+Math.floor(Math.random()*2))%CHARS.length;
+  enemy=new Fighter(CHARS[eIdx],680,online?false:true);
+  $("pName").textContent=(online?"你":"玩家")+" · "+player.name;$("pName").style.color=player.color;
+  $("eName").textContent=(online?"对手":"敌人")+" · "+enemy.name;$("eName").style.color=enemy.color;
+  updateHUD();
+}
+
+function updateHUD(){
+  if(!player||!enemy)return;
+  $("pHp").style.width=(player.hp/player.maxHp*100)+"%";
+  $("eHp").style.width=(enemy.hp/enemy.maxHp*100)+"%";
+  $("pHpT").textContent=player.hp+"/"+player.maxHp;
+  $("eHpT").textContent=enemy.hp+"/"+enemy.maxHp;
+  $("pEn").style.width=player.energy+"%";
+  $("eEn").style.width=enemy.energy+"%";
+}
+
+function drawScene(){
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,0,H);g.addColorStop(0,"#1e293b");g.addColorStop(.7,"#0f172a");g.addColorStop(1,"#1a1209");
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  ctx.fillStyle="#475569";for(let i=0;i<30;i++){ctx.fillRect((i*97)%W,(i*53)%200,2,2)}
+  ctx.fillStyle="#3f2d1e";ctx.fillRect(0,GROUND+12,W,H-GROUND);
+  ctx.strokeStyle="#6b4a2a";ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,GROUND+12);ctx.lineTo(W,GROUND+12);ctx.stroke();
+  ctx.fillStyle="#5a3d22";for(let i=0;i<W;i+=24)ctx.fillRect(i,GROUND+12,12,4);
+  if(player)player.draw();if(enemy)enemy.draw();
+  bombs.forEach(b=>b.draw());effects.forEach(e=>e.draw());
+  ctx.font="bold 18px sans-serif";ctx.textAlign="center";
+  floats.forEach(f=>{ctx.fillStyle=`rgba(255,80,80,${f.life/30})`;ctx.fillText("-"+f.val,f.x,f.y-(30-f.life))});
+}
+
+function loop(){
+  if($("gameScreen").classList.contains("active")&&!gameOver){
+    if(!player.isAI){
+      if(keys["a"]||keys["arrowleft"])player.move(-1);
+      else if(keys["d"]||keys["arrowright"])player.move(1);
+      if(keys["w"]||keys["arrowup"])player.jump();
+      if(keys["j"])player.punch();
+      if(keys["k"])player.kick();
+      if(keys["l"])player.throwBomb();
+      if(keys["u"])player.useSkill();
+    }
+    player.update();
+    if(mode==="single")enemy.update();
+    if(player.onGround&&player.busy===0&&enemy)player.dir=player.x<enemy.x?1:-1;
+    separate();
+    bombs.forEach(b=>b.update());bombs=bombs.filter(b=>!b.done);
+    effects.forEach(e=>e.update());effects=effects.filter(e=>!e.done);
+    floats=floats.filter(f=>{f.life--;return f.life>0});
+    drawScene();updateHUD();
+    if(online)send({t:"s",x:player.x,y:player.y,vy:player.vy,act:player.act,dir:player.dir,hp:player.hp,en:player.energy,frm:player.frame,fl:player.hurtFlash});
+    if(player.hp<=0||enemy.hp<=0)endFight();
+  }
+  requestAnimationFrame(loop);
+}
+
+function endFight(){
+  if(gameOver)return;gameOver=true;
+  const win=enemy.hp<=0;
+  $("endEmoji").textContent=win?"🏆":"💀";
+  $("endTitle").textContent=win?"胜利！":"失败！";
+  $("endTitle").style.color=win?"var(--gd)":"var(--dg)";
+  $("endVs").textContent=`${player.name} vs ${enemy.name}`;
+  if(online)send({t:"end"});
+  show("endScreen");
+}
+
+function send(d){if(conn&&conn.open)conn.send(d)}
+function createRoom(){
+  roomCode=Math.floor(1000+Math.random()*9000);
+  $("connStatus").textContent="创建中…";
+  peer=new Peer("sf2_"+roomCode);
+  peer.on("open",()=>{$("roomCodeDisplay").textContent=roomCode;$("waitStatus").textContent="等待加入…";show("waitScreen")});
+  peer.on("connection",c=>{conn=c;conn.on("open",()=>{$("waitStatus").textContent="对手已加入！请选择角色";show("selectScreen")});conn.on("data",handleRemote);conn.on("close",()=>alert("对手断开连接"))});
+  peer.on("error",e=>{$("connStatus").textContent="创建失败:"+e.type});
+}
+function joinRoom(code){
+  $("connStatus").textContent="连接中…";
+  peer=new Peer();
+  peer.on("open",()=>{conn=peer.connect("sf2_"+code,{reliable:true});
+    conn.on("open",()=>{$("connStatus").textContent="连接成功！请选择角色";online=true;isHost=false;show("selectScreen")});
+    conn.on("data",handleRemote);conn.on("close",()=>alert("连接断开"))});
+  peer.on("error",e=>{$("connStatus").textContent="连接失败，请检查房间号"});
+}
+function handleRemote(d){
+  if(d.t==="char"){enemyCharIdx=d.idx;if(myCharSent)startFight()}
+  else if(d.t==="s"&&enemy){enemy.x=d.x;enemy.y=d.y;enemy.vy=d.vy;enemy.act=d.act;enemy.dir=d.dir;enemy.hp=d.hp;enemy.energy=d.en;enemy.frame=d.frm;enemy.hurtFlash=d.fl}
+  else if(d.t==="evt"&&enemy){
+    if(d.k==="bomb")bombs.push(new Bomb(d.x,d.y,d.dir,enemy));
+    else if(d.k==="skill")effects.push(new Effect(d.type,d.x,d.y,d.dir,enemy.color,enemy.skDmg,enemy));
+    else if(d.k==="punch"||d.k==="kick"){const reach=d.k==="kick"?34:28;if(Math.abs(player.x-(d.x+d.dir*reach))<24&&Math.abs(player.y-enemy.y)<50)player.takeHit(enemy.atk+Math.floor(Math.random()*4),d.dir)}
+  }
+  else if(d.t==="end"){gameOver=true;$("endEmoji").textContent="🏆";$("endTitle").textContent="胜利！";$("endTitle").style.color="var(--gd)";$("endVs").textContent=`${player.name} vs ${enemy.name}`;show("endScreen")}
+}
+
+window.addEventListener("keydown",e=>{keys[e.key.toLowerCase()]=true});
+window.addEventListener("keyup",e=>{keys[e.key.toLowerCase()]=false});
+function bindBtn(id,key){const b=$(id),on=e=>{e.preventDefault();keys[key]=true},off=e=>{e.preventDefault();keys[key]=false};b.addEventListener("touchstart",on);b.addEventListener("touchend",off);b.addEventListener("mousedown",on);b.addEventListener("mouseup",off);b.addEventListener("mouseleave",off)}
+bindBtn("bL","a");bindBtn("bR","d");bindBtn("bJ","w");bindBtn("bP","j");bindBtn("bK","k");bindBtn("bB","l");bindBtn("bU","u");
+
+$("btnSingle").onclick=()=>{mode="single";online=false;$("selTitle").textContent="单人 vs AI";show("selectScreen")};
+$("btnOnline").onclick=()=>{show("onlineScreen")};
+$("btnCreate").onclick=()=>{online=true;isHost=true;createRoom()};
+$("btnJoin").onclick=()=>{const c=$("roomInput").value.trim();if(c.length===4){online=true;isHost=false;joinRoom(c)}else{$("connStatus").textContent="请输入4位房间号"}};
+$("btnBackMenu").onclick=()=>{show("menuScreen")};
+$("btnCancelWait").onclick=()=>{if(peer)peer.destroy();show("onlineScreen")};
+$("btnRetry").onclick=()=>{if(online){send({t:"char",idx:selected});startFight()}else startFight()};
+$("btnChange").onclick=()=>{show("selectScreen")};
+$("btnMenu").onclick=()=>{if(peer)peer.destroy();online=false;mode="single";show("menuScreen")};
+
+buildSelect();loop();
+</script>
+</body>
+</html>

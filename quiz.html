@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>网络安全知识闯关</title>
+<style>
+  :root {
+    --bg1: #0f172a; --bg2: #1e1b4b; --card: #1e293b; --border: #334155;
+    --text: #e2e8f0; --muted: #94a3b8; --accent: #38bdf8; --accent2: #818cf8;
+    --ok: #22c55e; --danger: #ef4444; --warn: #f59e0b; --gold: #fbbf24;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, var(--bg1) 0%, var(--bg2) 100%);
+    color: var(--text); min-height: 100vh; line-height: 1.6;
+    display: flex; align-items: center; justify-content: center; padding: 16px;
+  }
+  .app { width: 100%; max-width: 540px; }
+  .screen { display: none; animation: fade .4s ease; }
+  .screen.active { display: block; }
+  @keyframes fade { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  @keyframes pop { 0% { transform: scale(.8); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+  @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+
+  /* 开始页 */
+  .start-card { text-align: center; padding: 40px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; }
+  .start-card .logo { font-size: 3.5rem; margin-bottom: 12px; animation: pop .6s ease; }
+  .start-card h1 { font-size: 1.7rem; margin-bottom: 8px; background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .start-card .sub { color: var(--muted); font-size: .92rem; margin-bottom: 24px; }
+  .rules { text-align: left; background: #0f172a; border-radius: 12px; padding: 16px; margin-bottom: 24px; font-size: .88rem; }
+  .rules h3 { color: var(--accent); font-size: .95rem; margin-bottom: 8px; }
+  .rules li { color: var(--muted); padding: 3px 0; list-style: none; padding-left: 22px; position: relative; }
+  .rules li::before { content: "▸"; position: absolute; left: 0; color: var(--accent2); }
+  .best { color: var(--gold); font-size: .85rem; margin-bottom: 18px; min-height: 20px; }
+
+  .btn-primary {
+    width: 100%; padding: 14px; border: none; border-radius: 12px; cursor: pointer;
+    font-size: 1.05rem; font-weight: 600; color: #0f172a;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    transition: transform .15s, box-shadow .2s; box-shadow: 0 4px 20px rgba(56,189,248,.3);
+  }
+  .btn-primary:active { transform: scale(.97); }
+
+  /* 游戏页 */
+  .hud { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .hud .stat { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 8px 14px; font-size: .85rem; }
+  .hud .stat b { color: var(--accent); }
+  .lives { color: var(--danger); letter-spacing: 2px; }
+  .progress { height: 6px; background: #334155; border-radius: 3px; overflow: hidden; margin-bottom: 18px; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius: 3px; transition: width .4s; }
+
+  .q-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 22px; }
+  .q-num { color: var(--accent2); font-size: .8rem; margin-bottom: 6px; }
+  .q-text { font-size: 1.12rem; font-weight: 600; margin-bottom: 18px; }
+  .options { display: flex; flex-direction: column; gap: 10px; }
+  .opt {
+    padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px;
+    background: #0f172a; color: var(--text); font-size: .95rem; text-align: left;
+    cursor: pointer; transition: all .2s; width: 100%;
+  }
+  .opt:hover { border-color: var(--accent); transform: translateX(4px); }
+  .opt:active { transform: scale(.98); }
+  .opt.correct { border-color: var(--ok); background: rgba(34,197,94,.15); color: var(--ok); }
+  .opt.wrong { border-color: var(--danger); background: rgba(239,68,68,.15); color: var(--danger); }
+  .opt:disabled { cursor: default; }
+
+  /* 反馈 */
+  .feedback { margin-top: 16px; padding: 14px; border-radius: 12px; font-size: .88rem; display: none; animation: fade .3s; }
+  .feedback.show { display: block; }
+  .feedback.ok { background: rgba(34,197,94,.12); border: 1px solid var(--ok); }
+  .feedback.bad { background: rgba(239,68,68,.12); border: 1px solid var(--danger); }
+  .feedback .tip { color: var(--muted); margin-top: 6px; font-size: .82rem; }
+  .shake { animation: shake .4s; }
+
+  /* 结算页 */
+  .end-card { text-align: center; padding: 36px 24px; background: var(--card); border: 1px solid var(--border); border-radius: 20px; }
+  .end-card .emoji { font-size: 3.5rem; margin-bottom: 10px; animation: pop .6s; }
+  .end-card h2 { font-size: 1.5rem; margin-bottom: 6px; }
+  .end-card .rank { font-size: 1.1rem; font-weight: 700; margin-bottom: 16px; }
+  .score-box { background: #0f172a; border-radius: 14px; padding: 20px; margin-bottom: 20px; }
+  .score-big { font-size: 2.6rem; font-weight: 800; color: var(--gold); }
+  .score-label { color: var(--muted); font-size: .85rem; }
+  .stats-row { display: flex; justify-content: space-around; margin-top: 14px; font-size: .82rem; color: var(--muted); }
+  .stats-row b { color: var(--text); display: block; font-size: 1.1rem; }
+  .end-card .btn-primary { margin-top: 6px; }
+  .share-hint { color: var(--muted); font-size: .78rem; margin-top: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 开始页 -->
+  <div class="screen active" id="screenStart">
+    <div class="start-card">
+      <div class="logo">🛡️</div>
+      <h1>网络安全知识闯关</h1>
+      <p class="sub">10 道题，测测你的安全意识</p>
+      <div class="rules">
+        <h3>游戏规则</h3>
+        <ul>
+          <li>共 10 题，涵盖密码、钓鱼、社交工程等</li>
+          <li>初始 3 条命 ❤️❤️❤️，答错扣 1 命</li>
+          <li>答对得分，手速越快奖励越多</li>
+          <li>命用完即结束，答完所有题通关</li>
+        </ul>
+      </div>
+      <div class="best" id="bestScore"></div>
+      <button class="btn-primary" id="btnStart">开始挑战</button>
+    </div>
+  </div>
+
+  <!-- 游戏页 -->
+  <div class="screen" id="screenGame">
+    <div class="hud">
+      <div class="stat">第 <b id="qIndex">1</b>/10 题</div>
+      <div class="stat">得分 <b id="score">0</b></div>
+      <div class="stat lives" id="lives">❤️❤️❤️</div>
+    </div>
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+    <div class="q-card" id="qCard">
+      <div class="q-num" id="qNum"></div>
+      <div class="q-text" id="qText"></div>
+      <div class="options" id="options"></div>
+      <div class="feedback" id="feedback"></div>
+    </div>
+  </div>
+
+  <!-- 结算页 -->
+  <div class="screen" id="screenEnd">
+    <div class="end-card">
+      <div class="emoji" id="endEmoji">🏆</div>
+      <h2 id="endTitle">通关成功</h2>
+      <div class="rank" id="endRank"></div>
+      <div class="score-box">
+        <div class="score-big" id="endScore">0</div>
+        <div class="score-label">最终得分</div>
+        <div class="stats-row">
+          <div>答对<b id="endCorrect">0</b></div>
+          <div>答错<b id="endWrong">0</b></div>
+          <div>正确率<b id="endRate">0%</b></div>
+        </div>
+      </div>
+      <button class="btn-primary" id="btnRetry">再来一局</button>
+      <div class="share-hint">把链接发给朋友，一起来挑战吧！</div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const QUESTIONS = [
+  {
+    q: "设置网上银行登录密码，以下哪种最安全？",
+    opts: ["用生日，方便记忆", "123456，简单好记", "独立的长密码+大小写+数字+符号", "所有账户用同一个强密码"],
+    ans: 2,
+    tip: "强密码应足够长且含多种字符类型，每个账户独立使用。生日和 123456 是最容易被破解的弱密码。"
+  },
+  {
+    q: "收到邮件说你的账号被盗，要求点击链接验证身份，最正确的做法是？",
+    opts: ["立刻点击链接验证", "回复邮件确认", "直接登录官网（不点链接）查看", "把邮件转发给同事"],
+    ans: 2,
+    tip: "这是典型的钓鱼邮件。切勿点击邮件中的链接输入账号密码，应自行打开官方网址登录查看。"
+  },
+  {
+    q: "在咖啡店连接免费公共 WiFi 时，以下哪项最危险？",
+    opts: ["看新闻网页", "登录网银/购物支付", "看视频", "听在线音乐"],
+    ans: 1,
+    tip: "公共 WiFi 可能被监听或伪造。切勿在公共网络下进行网银、支付等敏感操作，必要时用 VPN 或手机流量。"
+  },
+  {
+    q: "关于双因素认证（2FA），说法正确的是？",
+    opts: ["有了强密码就不需要 2FA", "2FA 让账号更难被盗，建议开启", "2FA 会让登录太麻烦，不要用", "2FA 只对邮箱有用"],
+    ans: 1,
+    tip: "2FA 即使密码泄露，攻击者也需第二因素（验证码/密钥）才能登录，大幅提升安全，强烈建议开启。"
+  },
+  {
+    q: "浏览器地址栏显示 🔒 锁形图标且网址以 https 开头，说明？",
+    opts: ["网站绝对安全可信", "该网站传输已加密，但未必是正规网站", "网站是官方的", "网站没有病毒"],
+    ans: 1,
+    tip: "HTTPS 只代表传输加密，防止数据被窃听篡改，不代表网站本身可信。钓鱼网站也能用 HTTPS，仍需核实网址。"
+  },
+  {
+    q: "手机和电脑提示有系统/软件更新，应该？",
+    opts: ["永远不更新，怕出问题", "等别人更新再说", "及时更新，修复安全漏洞", "只更新看起来重要的"],
+    ans: 2,
+    tip: "更新常包含安全漏洞修复。拖延更新会让设备暴露在已知漏洞下，应及时安装官方更新。"
+  },
+  {
+    q: "同事在微信上急催你把客户名单发给他，但账号头像有点怪，应该？",
+    opts: ["赶紧发，别耽误工作", "通过其他渠道核实对方身份再说", "发但只发一部分", "不理他"],
+    ans: 1,
+    tip: "这是社交工程攻击的常见手法——冒充熟人制造紧急感。涉及敏感信息时，务必换渠道核实对方身份。"
+  },
+  {
+    q: "在路边捡到一个 U 盘，想插到自己电脑上看看里面有什么，这样做？",
+    opts: ["没关系，看看再说", "插之前先杀毒就行", "非常危险，可能植入恶意程序", "只插不打开文件就安全"],
+    ans: 2,
+    tip: "来历不明的 U 盘是传播恶意软件的经典手段，甚至能利用自动运行漏洞。切勿插入个人或工作电脑。"
+  },
+  {
+    q: "关于重要数据的备份，正确做法是？",
+    opts: ["相信硬盘不会坏，不用备份", "备份一份在同一台电脑", "遵循 3-2-1 原则做多处备份", "备份到 U 盘就够了"],
+    ans: 2,
+    tip: "3-2-1 原则：至少 3 份副本，存于 2 种不同介质，其中 1 份放在异地/云端，可防勒索软件、硬件损坏等灾难。"
+  },
+  {
+    q: "发现手机上突然多了一个不认识的 App，且耗电异常增加，最可能是？",
+    opts: ["系统自带，不用管", "可能是恶意软件，应查杀并卸载", "手机都这样，正常", "关机重启就好"],
+    ans: 1,
+    tip: "不明应用+异常耗电是恶意软件的典型迹象。应在设置中卸载该应用，运行安全扫描，必要时恢复出厂设置。"
+  },
+];
+
+const RANKS = [
+  { min: 0,  emoji: "🌱", title: "继续努力", rank: "网络安全小白", color: "#94a3b8" },
+  { min: 40, emoji: "📚", title: "小有基础", rank: "网络安全学徒", color: "#38bdf8" },
+  { min: 70, emoji: "💪", title: "表现不错", rank: "网络安全达人", color: "#818cf8" },
+  { min: 90, emoji: "🛡️", title: "安全意识强", rank: "网络安全专家", color: "#22c55e" },
+  { min: 120, emoji: "🏆", title: "通关大师", rank: "网络安全大师", color: "#fbbf24" },
+];
+
+let state = {};
+const $ = id => document.getElementById(id);
+
+function init() {
+  const best = localStorage.getItem("sec_best") || 0;
+  $("bestScore").textContent = best > 0 ? `🏆 历史最高：${best} 分` : "";
+}
+
+function startGame() {
+  state = { qIdx: 0, score: 0, lives: 3, correct: 0, wrong: 0, qStart: 0, locked: false };
+  show("screenGame");
+  renderQuestion();
+}
+
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+
+function renderQuestion() {
+  const q = QUESTIONS[state.qIdx];
+  state.qStart = Date.now();
+  state.locked = false;
+
+  $("qIndex").textContent = state.qIdx + 1;
+  $("score").textContent = state.score;
+  $("lives").textContent = "❤️".repeat(state.lives) + "🖤".repeat(3 - state.lives);
+  $("progressFill").style.width = ((state.qIdx) / QUESTIONS.length * 100) + "%";
+  $("qNum").textContent = `话题 · 第 ${state.qIdx + 1} 题`;
+  $("qText").textContent = q.q;
+
+  const optsEl = $("options");
+  optsEl.innerHTML = "";
+  q.opts.forEach((o, i) => {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.textContent = o;
+    b.onclick = () => answer(i);
+    optsEl.appendChild(b);
+  });
+  $("feedback").className = "feedback";
+}
+
+function answer(i) {
+  if (state.locked) return;
+  state.locked = true;
+  const q = QUESTIONS[state.qIdx];
+  const opts = document.querySelectorAll(".opt");
+  opts.forEach(o => o.disabled = true);
+
+  const fb = $("feedback");
+  const timeBonus = Math.max(0, 10 - Math.floor((Date.now() - state.qStart) / 1000));
+
+  if (i === q.ans) {
+    opts[i].classList.add("correct");
+    const gained = 10 + timeBonus;
+    state.score += gained;
+    state.correct++;
+    fb.className = "feedback ok show";
+    fb.innerHTML = `✅ 答对！+${gained} 分（含手速奖励 ${timeBonus}）<div class="tip">💡 ${q.tip}</div>`;
+  } else {
+    opts[i].classList.add("wrong");
+    opts[q.ans].classList.add("correct");
+    state.lives--;
+    state.wrong++;
+    $("qCard").classList.add("shake");
+    setTimeout(() => $("qCard").classList.remove("shake"), 400);
+    fb.className = "feedback bad show";
+    fb.innerHTML = `❌ 答错！失去 1 条命<div class="tip">💡 ${q.tip}</div>`;
+  }
+
+  $("score").textContent = state.score;
+  $("lives").textContent = "❤️".repeat(state.lives) + "🖤".repeat(3 - state.lives);
+
+  setTimeout(() => {
+    if (state.lives <= 0) { endGame(false); return; }
+    state.qIdx++;
+    if (state.qIdx >= QUESTIONS.length) { endGame(true); return; }
+    renderQuestion();
+  }, 2200);
+}
+
+function endGame(passed) {
+  show("screenEnd");
+  $("endScore").textContent = state.score;
+  $("endCorrect").textContent = state.correct;
+  $("endWrong").textContent = state.wrong;
+  const total = state.correct + state.wrong;
+  $("endRate").textContent = total > 0 ? Math.round(state.correct / total * 100) + "%" : "0%";
+
+  const rank = [...RANKS].reverse().find(r => state.score >= r.min);
+  $("endEmoji").textContent = passed ? rank.emoji : "💀";
+  $("endTitle").textContent = passed ? "通关成功" : "挑战失败";
+  $("endRank").textContent = passed ? rank.rank : "命用完了，再试一次吧";
+  $("endRank").style.color = passed ? rank.color : "var(--danger)";
+
+  const best = +(localStorage.getItem("sec_best") || 0);
+  if (state.score > best) localStorage.setItem("sec_best", state.score);
+}
+
+$("btnStart").onclick = startGame;
+$("btnRetry").onclick = startGame;
+init();
+</script>
+</body>
+</html>
