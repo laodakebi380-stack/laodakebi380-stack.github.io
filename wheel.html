@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>牢英雄转盘 · 24 选 1</title>
+<style>
+  :root{
+    --bg:#0d1117; --card:#161b22; --line:#2b3340; --tx:#e6edf3; --muted:#8b98a8;
+    --gold:#f0c040; --ok:#3fb950;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{
+    margin:0;min-height:100vh;background:radial-gradient(1200px 700px at 50% -10%,#1b2430,#0d1117 60%) no-repeat,var(--bg);
+    color:var(--tx);font-family:"Microsoft YaHei","PingFang SC",system-ui,sans-serif;
+    display:flex;flex-direction:column;align-items:center;padding:18px 14px 40px;
+  }
+  h1{font-size:20px;margin:6px 0 2px;letter-spacing:1px}
+  .sub{color:var(--muted);font-size:12px;margin-bottom:14px}
+  .stage{position:relative;width:min(92vw,520px);aspect-ratio:1/1}
+  canvas{width:100%;height:100%;display:block;border-radius:50%;
+    box-shadow:0 10px 40px rgba(0,0,0,.55),0 0 0 6px #1b2430,0 0 0 8px var(--line)}
+  .pointer{position:absolute;top:-10px;left:50%;transform:translateX(-50%);z-index:3;
+    width:0;height:0;border-left:13px solid transparent;border-right:13px solid transparent;
+    border-top:30px solid var(--gold);filter:drop-shadow(0 3px 4px rgba(0,0,0,.6))}
+  .result{margin-top:18px;text-align:center;min-height:76px}
+  .result .label{color:var(--muted);font-size:12px}
+  .result .name{font-size:34px;font-weight:800;color:var(--gold);line-height:1.25;
+    text-shadow:0 2px 12px rgba(240,192,64,.25)}
+  .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+  button{cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--tx);
+    padding:9px 16px;border-radius:10px;font-size:14px;font-family:inherit}
+  button:hover{border-color:var(--gold)}
+  button:active{transform:scale(.97)}
+  .switch{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);
+    margin-top:12px;user-select:none}
+  .hist{width:min(92vw,520px);margin-top:22px;background:var(--card);border:1px solid var(--line);
+    border-radius:12px;padding:12px 14px}
+  .hist h2{font-size:13px;color:var(--muted);margin:0 0 8px;font-weight:500}
+  .hist ol{margin:0;padding-left:20px;font-size:13px;line-height:1.9;max-height:180px;overflow:auto}
+  .hist li b{color:var(--gold)}
+  .hint{color:var(--muted);font-size:12px;margin-top:14px;text-align:center;line-height:1.7}
+  code{background:#1b2430;border:1px solid var(--line);border-radius:6px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+  <h1>牢英雄转盘 · 24 选 1</h1>
+  <div class="sub">点击转盘中心开始 · 共 24 个英雄</div>
+
+  <div class="stage">
+    <div class="pointer"></div>
+    <canvas id="wheel"></canvas>
+  </div>
+
+  <div class="result">
+    <div class="label">结果</div>
+    <div class="name" id="resultName">—</div>
+  </div>
+
+  <div class="row">
+    <button id="btnSpin">再转一次</button>
+    <button id="btnReset">清空记录</button>
+  </div>
+  <label class="switch"><input type="checkbox" id="noRepeat"> 不重复模式（转过的短时间内不再抽到）</label>
+
+  <div class="hist">
+    <h2>历史记录</h2>
+    <ol id="histList"></ol>
+  </div>
+
+  <p class="hint">
+    点击<strong>转盘中心</strong>或按<strong>空格</strong>开始转动<br>
+    单文件、离线可用（双击本文件即可，无需网络）
+  </p>
+
+<script>
+// ============ 数据（按转盘截图顺时针顺序录入，共 24 个） ============
+const ITEMS = [
+  "亚瑟", "猪八戒", "李信", "钟无艳", "夏侯惇", "程咬金",
+  "项羽", "白起", "达摩", "吕布", "姬小满", "赵怀真（打野/边路）",
+  "伽罗", "李元芳", "莱西奥", "黄忠", "蒙犽", "雅典娜",
+  "梦奇", "澜", "阿珂", "王昭君", "刘备", "云中君"
+];
+
+// ============ 纯逻辑（可单独测试） ============
+// ---logic-start---
+/** 计算让第 index 个扇区停在顶部指针处的目标旋转角（度，正数=顺时针） */
+function pickTargetRotation(index, total, currentRotation, spins, jitter) {
+  const seg = 360 / total;
+  const center = (index + 0.5) * seg;                 // 该扇区中心在轮盘本地坐标系的角度（0=正上方，顺时针）
+  const want = 360 * spins - center + jitter;         // 目标绝对角（使 center 转到 0 即正上方）
+  const delta = ((want - currentRotation) % 360 + 360) % 360;
+  return currentRotation + delta;
+}
+/** 反推：给定旋转角，指针（正上方）此刻落在哪个扇区 */
+function segmentAtPointer(rotation, total) {
+  const seg = 360 / total;
+  const local = ((-rotation) % 360 + 360) % 360;      // 正上方对应的本地角
+  return Math.floor(local / seg + 1e-9) % total;
+}
+// ---logic-end---
+
+// ============ 绘制与交互 ============
+const cv = document.getElementById("wheel");
+const ctx = cv.getContext("2d");
+const resultName = document.getElementById("resultName");
+const histList = document.getElementById("histList");
+const noRepeat = document.getElementById("noRepeat");
+
+let rotation = 0, spinning = false, history = [], recent = [];
+
+const hueOf = i => Math.round(i * 360 / ITEMS.length);
+
+function sizeCanvas() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  const rect = cv.getBoundingClientRect();
+  const px = Math.max(240, Math.round(rect.width * dpr));
+  if (cv.width !== px) { cv.width = px; cv.height = px; }
+  draw();
+  return { px, dpr };
+}
+
+function draw() {
+  const S = cv.width, c = S / 2, R = c - S * 0.012;
+  ctx.clearRect(0, 0, S, S);
+  const seg = 2 * Math.PI / ITEMS.length;
+
+  ctx.save();
+  ctx.translate(c, c);
+  ctx.rotate(rotation * Math.PI / 180);
+
+  // 扇区
+  ITEMS.forEach((name, i) => {
+    const a0 = i * seg - Math.PI / 2, a1 = a0 + seg;
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, R, a0, a1);
+    ctx.closePath();
+    const h = hueOf(i);
+    const g = ctx.createRadialGradient(0, 0, R * 0.15, 0, 0, R);
+    g.addColorStop(0, `hsl(${h},72%,58%)`);
+    g.addColorStop(1, `hsl(${h},68%,46%)`);
+    ctx.fillStyle = g;
+    ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.75)";
+    ctx.lineWidth = S * 0.003;
+    ctx.stroke();
+  });
+
+  // 文字（沿半径朝外）
+  ITEMS.forEach((name, i) => {
+    const mid = (i + 0.5) * seg - Math.PI / 2;
+    ctx.save();
+    ctx.rotate(mid);
+    const long = name.length > 6;
+    const fs = S * (long ? 0.026 : (name.length > 4 ? 0.032 : 0.038));
+    ctx.font = `700 ${fs}px "Microsoft YaHei","PingFang SC",sans-serif`;
+    ctx.fillStyle = "#fff";
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.shadowColor = "rgba(0,0,0,.45)";
+    ctx.shadowBlur = S * 0.012;
+    ctx.fillText(name, R - S * 0.03, 0);
+    ctx.restore();
+  });
+  ctx.restore();
+
+  // 中心轴
+  ctx.beginPath();
+  ctx.arc(c, c, S * 0.145, 0, Math.PI * 2);
+  ctx.fillStyle = "#161b22";
+  ctx.fill();
+  ctx.strokeStyle = "#f0c040";
+  ctx.lineWidth = S * 0.008;
+  ctx.stroke();
+
+  ctx.fillStyle = spinning ? "#8b98a8" : "#f0c040";
+  ctx.font = `800 ${S * 0.052}px "Microsoft YaHei",sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(spinning ? "转动中" : "开始", c, c);
+}
+
+function pickIndex() {
+  let pool = ITEMS.map((_, i) => i);
+  if (noRepeat.checked && recent.length && recent.length < ITEMS.length) {
+    pool = pool.filter(i => !recent.includes(i));
+  }
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
+function spin() {
+  if (spinning) return;
+  spinning = true;
+  const total = ITEMS.length;
+  const idx = pickIndex();
+  const seg = 360 / total;
+  const jitter = (Math.random() - 0.5) * seg * 0.62;      // 落点随机偏移，避免总停在正中
+  const spins = 5 + Math.floor(Math.random() * 4);        // 5~8 圈
+  const from = rotation;
+  const to = pickTargetRotation(idx, total, from, spins, jitter);
+  const dur = 4300, t0 = performance.now();
+
+  const ease = t => 1 - Math.pow(1 - t, 3);
+
+  function frame(now) {
+    const t = Math.min(1, (now - t0) / dur);
+    rotation = from + (to - from) * ease(t);
+    draw();
+    if (t < 1) { requestAnimationFrame(frame); return; }
+
+    rotation = ((to % 360) + 360) % 360;
+    spinning = false;
+    draw();
+
+    // 校验：真实停下的扇区与目标一致（防止浮点误差）
+    const landed = segmentAtPointer(rotation, total);
+    const name = ITEMS[landed];
+    showResult(name, landed === idx);
+  }
+  requestAnimationFrame(frame);
+}
+
+function showResult(name, consistent) {
+  resultName.textContent = name;
+  history.unshift(name);
+  recent.unshift(ITEMS.indexOf(name));
+  const cap = Math.min(8, ITEMS.length - 1);
+  recent = recent.slice(0, cap);
+  renderHistory();
+  if (!consistent) console.warn("落点校验不一致：显示的是指针实际指向的扇区");
+}
+
+function renderHistory() {
+  histList.innerHTML = "";
+  history.slice(0, 30).forEach((n, i) => {
+    const li = document.createElement("li");
+    li.innerHTML = `<b>${n}</b>`;
+    histList.appendChild(li);
+  });
+}
+
+// 点击：只有点中心圆才转
+cv.addEventListener("click", e => {
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+  const d = Math.hypot(x - 0.5, y - 0.5);
+  if (d <= 0.155) spin();
+});
+cv.addEventListener("touchstart", e => {
+  const t = e.touches[0];
+  const r = cv.getBoundingClientRect();
+  const d = Math.hypot((t.clientX - r.left) / r.width - 0.5, (t.clientY - r.top) / r.height - 0.5);
+  if (d <= 0.155) { e.preventDefault(); spin(); }
+}, { passive: false });
+
+document.getElementById("btnSpin").onclick = spin;
+document.getElementById("btnReset").onclick = () => {
+  history = []; recent = []; renderHistory(); resultName.textContent = "—";
+};
+window.addEventListener("keydown", e => {
+  if (e.code === "Space") { e.preventDefault(); spin(); }
+});
+window.addEventListener("resize", sizeCanvas);
+
+// 启动
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizeCanvas);
+sizeCanvas();
+renderHistory();
+</script>
+</body>
+</html>
